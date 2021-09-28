@@ -1,0 +1,78 @@
+#+title: kkbibapi
+Export library loan status for libraries in Copenhagen Municipality for
+Prometheus.
+
+Still a bit crude, but it works!
+
+* Usage
+Create a config file in EDN format:
+#+begin_src clojure
+{:port  3001
+ :users [{:cpr  "1234567890"
+          :user "Rune"
+          :pin  "1234"}
+         {:cpr  "0987654321"
+          :user "Alter ego"
+          :pin  "4321"}]}
+#+end_src
+
+Run the server:
+#+begin_src sh
+lein run ~/config.edn
+#+end_src
+
+* PoC login using ~curl~
+#+begin_src sh
+(cookie=$(mktemp); token=$(curl --cookie "${cookie}" --cookie-jar "${cookie}" -Lv 'https://bibliotek.kk.dk/adgangsplatformen/login?destination=ding_frontpage' | grep -Eo '/login/identityProviderCallback/borchk/[a-f0-9]+' | awk -F/ '{print $NF}'); echo "token: ${token}" )
+#+end_src
+
+#+begin_src sh
+curl "https://login.bib.dk/login/identityProviderCallback/borchk/${token}" -X POST -H 'Content-Type: application/x-www-form-urlencoded' -H 'Origin: https://login.bib.dk' -H 'Referer: https://login.bib.dk/login' --data-raw "agency=710100&libraryName=K%C3%B8benhavn&autocomplete-username=&userId=${CPR}&pincode=${PIN}"
+#+end_src
+
+#+begin_src sh curl 'https://login.bib.dk/login/identityProviderCallback/borchk/025524449bc3b9d98578f5108eecbbedf38a3788abd06cf2fcbe10770da0417a' \
+     -X POST \
+     -H 'User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:92.0) Gecko/20100101 Firefox/92.0' \
+     -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8' \
+     -H 'Accept-Language: en-GB,en-US;q=0.7,en;q=0.3' \
+     --compressed \
+     -H 'Content-Type: application/x-www-form-urlencoded' \
+     -H 'Origin: https://login.bib.dk' \
+     -H 'DNT: 1' \
+     -H 'Connection: keep-alive' \
+     -H 'Referer: https://login.bib.dk/login' \
+     -H 'Cookie: connect.sid=s%3AXDMdRGpooZ8-C7Bl66wp7pJhNUic3FCu.4BoBEyBo7ZJpVdaGP1ESCAZ0dfBNoDM5Uj1QQYpI30o' \
+     -H 'Upgrade-Insecure-Requests: 1' \
+     -H 'Sec-Fetch-Dest: document' \
+     -H 'Sec-Fetch-Mode: navigate' \
+     -H 'Sec-Fetch-Site: same-origin' \
+     -H 'Sec-Fetch-User: ?1'\
+     -H 'Pragma: no-cache'\
+     -H 'Cache-Control: no-cache'\
+     --data-raw 'agency=710100&libraryName=K%C3%B8benhavn&autocomplete-username=&userId=${CPR}&pincode=${PIN}'
+#+end_src
+
+#+begin_src bash :shebang "#!/bin/bash" :tangle /tmp/bibtest.sh :results output verbatim
+set -euo pipefail
+
+read -r -p 'CPR: ' cpr
+read -r -p 'Pin: ' pin
+
+if ! [[ "${cpr}" ]] || ! [[ "${pin}" ]]; then
+  exit 2
+fi
+
+cookie=$(mktemp)
+echo "${cookie}"
+curl --cookie "${cookie}" --cookie-jar "${cookie}" -Lv 'https://bibliotek.kk.dk/adgangsplatformen/login?destination=ding_frontpage%3Fmessage%3Dlogout'
+token=$(curl --cookie "${cookie}" --cookie-jar "${cookie}" -Lv 'https://bibliotek.kk.dk/adgangsplatformen/login?destination=ding_frontpage' | grep -Eo '/login/identityProviderCallback/borchk/[a-f0-9]+' | awk -F/ '{print $NF}')
+echo "token: ${token}"
+curl --cookie "${cookie}" --cookie-jar "${cookie}" -Lv \
+     "https://login.bib.dk/login/identityProviderCallback/borchk/${token}" \
+     -H 'Content-Type: application/x-www-form-urlencoded' \
+     -H 'Origin: https://login.bib.dk' \
+     -H 'Referer: https://login.bib.dk/login' \
+     --data-raw "agency=710100&libraryName=K%C3%B8benhavn&autocomplete-username=&userId=${cpr}&pincode=${pin}"
+
+curl --cookie "${cookie}" --cookie-jar "${cookie}" https://bibliotek.kk.dk/user/me/status-loans | grep -A9999 'Lån og forny'
+#+end_src
