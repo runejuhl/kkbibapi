@@ -90,15 +90,15 @@
                                     first
                                     :content
                                     first)
-                   :authors     (-> item
-                                    (->> (s/select
-                                          (s/descendant
-                                           (s/class :item-creators))))
+                   :authors     (some-> item
+                                        (->> (s/select
+                                              (s/descendant
+                                               (s/class :item-creators))))
 
-                                    first
-                                    :content
-                                    first
-                                    (clojure.string/split #", "))}))))
+                                        first
+                                        :content
+                                        first
+                                        (clojure.string/split #", "))}))))
 
 (defn write-loan-metrics
   [{:keys [user loans] :as _data}]
