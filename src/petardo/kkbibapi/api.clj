@@ -9,7 +9,7 @@
 
 (def months-danish
   "List of months names in Danish for date parsing."
-  '("januar" "februar" "marts" "april" "maj" "juni" "july" "august"
+  '("januar" "februar" "marts" "april" "maj" "juni" "juli" "august"
              "september" "oktober" "november" "december"))
 
 (defn parse-danish-date
